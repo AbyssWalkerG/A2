@@ -8,7 +8,7 @@
 #include <sstream>
 #include <fstream>
 
-#define STOP "stopwords.txt";
+#define STOP "stopwords.txt"
 
 using namespace std;
 
@@ -20,42 +20,61 @@ struct Invertedindex {
 
 int readStopWords(const string& stop_words, unordered_set<string>& stop);
 int initIndex(const string& meta_data, const string& index_name, Invertedindex index);
-int search();
-int wordTokenizer(string s, vector<string>& tokens);
+int wordTokenizer(string s, vector<string>& tokens, unordered_set<string>& stop_words);
 int xapianTest();
+int search();
 
-int main() {
+int main(int argc, const char * argv[]) {
     
-    if (argc != 3) {
-            cout << "Usage: a2 <dataset_metadata> <index_name>";
+    if (argc < 3) {
+            cout << "Usage: ./a2 <dataset_metadata> <index_name>";
             return 1;
         }
     
     string meta_data(argv[1]);
     string index_name(argv[2]);
     
-    Invertedindex Index;
+    cout<<meta_data<<" "<<index_name;
+    
+    Invertedindex index;
     //char *dbname = "test";
     //Xapian::WritableDatabase db(dbname, Xapian::DB_CREATE_OR_OPEN);
     //std::cout << "Hello, World" << std::endl;
-    initIndex(meta_data, index_name, index);
+    //initIndex(meta_data, index_name, index); //untested
+    xapianTest(); //tested
+    return 0;
+}
+
+int readStopWords(const string& stop_words, unordered_set<string>& stop)
+{
+    ifstream inFile(stop_words, ios::in);
+    if(inFile.fail()) {
+        cout<<"File not found"<<endl;
+        return 1;
+    }
+    string lineStr;
+    while(getline(inFile, lineStr))
+    {
+        stop.insert(lineStr);
+    }
     return 0;
 }
 
 int initIndex(const string& meta_data, const string& index_name, Invertedindex& index)
 {
     // open csv file
-    ifstream inFile(csv_file, ios::in);
+    ifstream inFile(meta_data, ios::in);
     if(inFile.fail()) {
         cout<<"File not found"<<endl;
         return 1;
     }
-    unordered_set<string>& stop_words;
+    unordered_set<string> stop_words;
     readStopWords(STOP, stop_words);
+    
     // timestamp
     auto begin = chrono::high_resolution_clock::now();
     
-    char *idxname = index_name;
+    string idxname = index_name;
     Xapian::WritableDatabase db1(idxname, Xapian::DB_CREATE_OR_OPEN);
     Xapian::Document doc;
     
@@ -87,25 +106,25 @@ int initIndex(const string& meta_data, const string& index_name, Invertedindex& 
             index.dictionary.merge(word_in_doc);
             for(auto iter = word_in_doc.begin(); iter != word_in_doc.end(); ++iter)
             {
-                if(index.dictionary.find(word_in_doc[iter])==index.dictionary.end())
-                    index.dictionary.insert(word_in_doc[iter]);
-                index.freq[word_in_doc[iter]]++;
-                index.postings[word_in_doc[iter]].push_back(line_number/2);
+                if(index.dictionary.find(*iter)==index.dictionary.end())
+                    index.dictionary.insert(*iter);
+                index.freq[*iter]++;
+                index.postings[*iter].push_back(line_number/2);
             }
             
             //dataset description
             doc.add_value(1, string(lineStr));
-            db.add_document(doc);
+            db1.add_document(doc);
             word_in_doc.clear();
             doc.clear_terms();
             doc.clear_values();
             if(line_number % 2000 == 0)
-                db.commit();
+                db1.commit();
         }
     }
     
     if(line_number % 2000 != 0)
-        db.commit();
+        db1.commit();
     
     inFile.close();
     
@@ -141,13 +160,13 @@ int wordTokenizer(string s, vector<string>& tokens, unordered_set<string>& stop_
     // Tokenizing w.r.t. space ' '
     while(getline(check1, intermediate, ' '))
     {
-        for (int i = 0, len = str.size(); i < len; i++)
+        for (int i = 0, len = intermediate.size(); i < len; i++)
         {
             // check whether parsing character is punctuation or not
-            if (ispunct(str[i]))
+            if (ispunct(intermediate[i]))
             {
-                str.erase(i--, 1);
-                len = str.size();
+                intermediate.erase(i--, 1);
+                len = intermediate.size();
             }
         }
         
@@ -164,6 +183,7 @@ int wordTokenizer(string s, vector<string>& tokens, unordered_set<string>& stop_
     return 0;
 }
 
+//This is the sample code in the tutorial
 int xapianTest()
 {
     //xapian test
@@ -184,7 +204,9 @@ int xapianTest()
         
         // perform tokenization
         vector<string> tokens;
-        wordTokenizer(s, tokens);
+        unordered_set<string> stop_words;
+        readStopWords(STOP, stop_words);
+        wordTokenizer(s, tokens, stop_words);
         
         // populate the document
         // value[0] will be the original line
@@ -200,9 +222,10 @@ int xapianTest()
             doc.add_term(token);
         }
         cout << endl;
-        db.add_document(doc);
+        db1.add_document(doc);
         if(lineno % 1000 == 0) {
-            db.commit();
+            db1.commit();
         }
+    }
     return 0;
 }

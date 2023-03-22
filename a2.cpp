@@ -1,6 +1,9 @@
 #include <xapian.h>
 #include <iostream>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <chrono>
 
 using namespace std;
 
@@ -8,7 +11,7 @@ struct Invertedindex {
 	unordered_set<string> dictionary;
 	unordered_map<string, int> freq;
 	unordered_map<string, vector<int>> postings;
-}
+};
 
 int readStopWords();
 int isStopWord();

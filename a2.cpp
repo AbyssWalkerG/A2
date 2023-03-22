@@ -10,6 +10,7 @@ struct Invertedindex {
 
 int readStopWords();
 int isStopWord();
+int initIndexer(const string &mata_data, const string &index_name);
 
 int main() {
     char *dbname = "test";

@@ -19,7 +19,8 @@ struct Invertedindex {
 };
 
 int readStopWords(const string& stop_words, unordered_set<string>& stop);
-int initIndex(const string& meta_data, const string& index_name, Invertedindex index);
+int initIndex(const string& meta_data, const string& index_name, Invertedindex& index);
+bool ispunct1(char& c);
 int wordTokenizer(string s, vector<string>& tokens, unordered_set<string>& stop_words);
 int xapianTest();
 int search();
@@ -34,14 +35,12 @@ int main(int argc, const char * argv[]) {
     string meta_data(argv[1]);
     string index_name(argv[2]);
     
-    cout<<meta_data<<" "<<index_name;
-    
     Invertedindex index;
     //char *dbname = "test";
     //Xapian::WritableDatabase db(dbname, Xapian::DB_CREATE_OR_OPEN);
     //std::cout << "Hello, World" << std::endl;
-    //initIndex(meta_data, index_name, index); //untested
-    xapianTest(); //tested
+    initIndex(meta_data, index_name, index); //untested
+    //xapianTest(); //tested
     return 0;
 }
 
@@ -79,27 +78,35 @@ int initIndex(const string& meta_data, const string& index_name, Invertedindex& 
     Xapian::Document doc;
     
     string lineStr;
-    int line_number = 0;
+    int line_number = -1;
     unordered_set<string> word_in_doc;
     while(getline(inFile, lineStr))
     {
         line_number++;
+        cout<<"getline: "<<line_number<<endl;
+        cout<<lineStr<<endl;
         vector<string> tokens;
+        //Tokenizer here!!!
         wordTokenizer(lineStr, tokens, stop_words);
+        cout<<"tokens size: "<<tokens.size()<<endl;
+        cout<<"tokenize for line "<<line_number<<" has started"<<endl;
         for(vector<string>::iterator it_token=tokens.begin();
             it_token != tokens.end();
             it_token++)
         {
             string &token = *it_token;
-            
-            if(word_in_doc.find(token)==word_in_doc.end())
+            if(word_in_doc.find(token) == word_in_doc.end())
                 word_in_doc.insert(token);
-            //cout << token << " ";
+            cout <<"@"<<token << "@ ";
             doc.add_term(token);
         }
+        cout<<endl<<"tokenize for entry: "<<line_number/2<<" has finished"<<endl;
         
         if(line_number % 2 == 0)
+        {
+            cout<<"add_value 0 for entry: "<<line_number/2<<endl;
             doc.add_value(0, string(lineStr));//add dataset name
+        }
         else
         {
             //update Inverted index
@@ -113,14 +120,18 @@ int initIndex(const string& meta_data, const string& index_name, Invertedindex& 
             }
             
             //dataset description
+            cout<<"add_value 1 for entry: "<<line_number/2<<endl;
             doc.add_value(1, string(lineStr));
+            cout<<"add_doc for entry: "<<line_number/2<<endl;
             db1.add_document(doc);
+            cout<<"clear line: "<<line_number<<endl;
             word_in_doc.clear();
             doc.clear_terms();
             doc.clear_values();
             if(line_number % 2000 == 0)
                 db1.commit();
         }
+        cout<<"line: "<<line_number<<" finished"<<endl;
     }
     
     if(line_number % 2000 != 0)
@@ -152,6 +163,11 @@ int search()
     return 0;
 }
 
+bool ispunct1(char& c)
+{
+    return false;
+}
+
 int wordTokenizer(string s, vector<string>& tokens, unordered_set<string>& stop_words)
 {
     stringstream check1(s);
@@ -162,6 +178,8 @@ int wordTokenizer(string s, vector<string>& tokens, unordered_set<string>& stop_
     {
         for (int i = 0, len = intermediate.size(); i < len; i++)
         {
+            if(intermediate[i]>='A' && intermediate[i]<='Z')
+                intermediate[i]-='A'-'a';
             // check whether parsing character is punctuation or not
             if (ispunct(intermediate[i]))
             {
@@ -173,13 +191,14 @@ int wordTokenizer(string s, vector<string>& tokens, unordered_set<string>& stop_
         if(stop_words.find(intermediate)!=stop_words.end())
             continue;
         
-        tokens.push_back(intermediate);
+        if(intermediate.size() > 0)
+            tokens.push_back(intermediate);
     }
          
     // Printing the token vector
-    for(int i = 0; i < tokens.size(); i++)
-        cout << tokens[i] << '\n';
-    
+    //for(int i = 0; i < tokens.size(); i++)
+        //cout << tokens[i] << '@';
+    //cout<<endl;
     return 0;
 }
 
